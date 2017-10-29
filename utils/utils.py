@@ -9,10 +9,12 @@ import torch.nn as nn
 
 
 
-def calculateTimeInterval(missing_data):
-    df = missing_data.copy()
-    df['TimeInterval'] = (df['CompleteTimestamp'] - df['CompleteTimestamp'].shift(1))
-    df.loc[0, 'TimeInterval'] = 0
+def calculateCumDuration(df):
+    df['CumDuration'] = (df['CompleteTimestamp'] - df['CompleteTimestamp'].iloc[0])
+    return df
+
+def calculateAnomalousCumDuration(df):
+    df['AnomalousCumDuration'] = (df['AnomalousCompleteTimestamp'] - df['AnomalousCompleteTimestamp'].iloc[0])
     return df
 
 def calculateDuration(df):
@@ -53,6 +55,14 @@ def getInput(groupByCase, cols, maxlen):
     inp = np.array(full_list)
     return inp
 
+def getModifiedInput(groupByCase, cols, maxlen):
+    full_list = []
+    for case, data in groupByCase:
+        temp = data.as_matrix(columns=cols)
+        #temp = padwithzeros(temp, maxlen)
+        full_list.append(temp)
+    inp = np.array(full_list)
+    return inp
 
 def getProbability(recon_test):
     '''This function takes 3d tensor as input and return a 3d tensor which has probabilities for 

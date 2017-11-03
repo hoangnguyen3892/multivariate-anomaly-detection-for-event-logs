@@ -142,7 +142,7 @@ class VAE_dropout(nn.Module):
         return self.decode(z, x), mu, logvar    
     
 
-    
+ 
 class AE(nn.Module):
     def __init__(self, shape, h_dim, z_dim):
         super(AE, self).__init__()
@@ -161,6 +161,8 @@ class AE(nn.Module):
         #initialize weights
         nn.init.xavier_uniform(self.fc1.weight, gain=np.sqrt(2))
         nn.init.xavier_uniform(self.fc2.weight, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.fc3.weight, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.fc4.weight, gain=np.sqrt(2))
 
     def encode(self, x):
         #x --> fc1 --> fc2 --> sigmoid --> z
@@ -178,7 +180,43 @@ class AE(nn.Module):
         #flatten input and pass to encode
         z = self.encode(x.view(-1, self.shape[1]*self.shape[2]))
         return self.decode(z, x)
+
+class AE_tanh(nn.Module):
+    def __init__(self, shape, h_dim, z_dim):
+        super(AE_tanh, self).__init__()
+        self.shape = shape
+        
+        # X --> fc1 --> Z --> fc2 --> X'
+        self.fc1 = nn.Linear(shape[1]*shape[2], h_dim) #encode
+        self.fc2 = nn.Linear(h_dim, z_dim) #decode
+        
+        self.fc3 = nn.Linear(z_dim, h_dim) #decode
+        self.fc4 = nn.Linear(h_dim, shape[1]*shape[2]) #decode
     
+        #self.relu = nn.ReLU()
+        #self.sigmoid = nn.Sigmoid()
+        self.tanh = nn.Tanh()
+
+        #initialize weights
+        nn.init.xavier_uniform(self.fc1.weight, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.fc2.weight, gain=np.sqrt(2))
+
+    def encode(self, x):
+        #x --> fc1 --> fc2 --> sigmoid --> z
+        h = self.tanh(self.fc1(x))
+        z = self.tanh(self.fc2(h))
+        return z
+
+    def decode(self, z, x):
+        #z --> fc3 --> fc4 --> sigmoid
+        h = self.tanh(self.fc3(z))
+        recon_x = self.fc4(h)
+        return recon_x.view(x.size())
+    
+    def forward(self, x):
+        #flatten input and pass to encode
+        z = self.encode(x.view(-1, self.shape[1]*self.shape[2]))
+        return self.decode(z, x)    
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, layer1, hidden_size, num_layers, isCuda):

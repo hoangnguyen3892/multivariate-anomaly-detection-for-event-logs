@@ -8,6 +8,9 @@ import torch
 import torch.nn as nn
 
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, roc_curve, auc, precision_recall_curve
 
 def calculateCumDuration(df):
     df['CumDuration'] = (df['CompleteTimestamp'] - df['CompleteTimestamp'].iloc[0])
@@ -83,6 +86,29 @@ def getProbability(recon_test):
     return recon
 
 
+def getPrediction(predicted_tensor, pad_matrix):
+    '''
+    This function converts a tensor to a pandas dataframe
+    Return: Dataframe with columns (NormalizedTime, PredictedActivity)
+
+    - predicted_tensor: recon
+    - df: recon_df_w_normalized_time
+    '''
+    predicted_tensor = getProbability(predicted_tensor) #get probability for categorical variables
+    predicted_array = predicted_tensor.data.cpu().numpy() #convert to numpy array
+    
+    #Remove 0-padding
+    temp_predicted_array = predicted_array*pad_matrix
+    temp_predicted_array = temp_predicted_array.reshape(predicted_array.shape[0]*predicted_array.shape[1], predicted_array.shape[2])
+    temp_predicted_array = temp_predicted_array[np.any(temp_predicted_array != 0, axis=1)]
+    
+    predicted_time = temp_predicted_array[:, 0]
+    predicted_activity = temp_predicted_array[:, 1:]
+
+    return predicted_time, predicted_activity
+
+
+
 def getError(predicted_tensor, true_tensor, pad_matrix):
     '''
     This function converts a tensor to a pandas dataframe
@@ -113,11 +139,111 @@ def getError(predicted_tensor, true_tensor, pad_matrix):
     return predicted_time, predicted_activity, true_time, true_activity
 
 
+def plotConfusionMaxtrix(error_df, threshold, variable='Activity'):
+    LABELS = ['Normal', 'Anomaly']
+    y_pred = [1 if e > threshold else 0 for e in error_df.Error.values]
+    
+    if variable == 'Activity':
+        matrix = confusion_matrix(error_df.ActivityLabel.astype('uint8'), y_pred)
+    else:
+        matrix = confusion_matrix(error_df.TimeLabel.astype('uint8'), y_pred)
+        
+    plt.figure(figsize=(7, 7))
+    sns.heatmap(matrix, xticklabels=LABELS, yticklabels=LABELS, annot=True, fmt="d");
+    plt.title('Confusion matrix of {}'.format(variable))
+    plt.ylabel('True class')
+    plt.xlabel('Predicted class')
+    plt.show()
 
 
+def plotReconstructionError(error_df, variable='Activity'):
+    if variable == 'Activity':
+        normal_error_df = error_df[(error_df['ActivityLabel']== 0)]['Error']
+        anomaly_error_df = error_df[(error_df['ActivityLabel']== 1)]['Error']
+    else:
+        normal_error_df = error_df[(error_df['TimeLabel']== 0)]['Error']
+        anomaly_error_df = error_df[(error_df['TimeLabel']== 1)]['Error']
+    
+    plt.figure(figsize=(15, 5))
+    
+    #normal cases
+    plt.subplot(121)
+    normal_error_df.hist()
+    plt.title('Reconstruction error of Normal cases')
+    
+    #anomalous cases
+    plt.subplot(122)
+    anomaly_error_df.hist()
+    plt.title('Reconstruction error of Anomaly cases')
+    
+    plt.show()
 
 
+def evalScore(error_df, threshold, variable='Activity'):
+    y_pred = [1 if e > threshold else 0 for e in error_df.Error.values]
+    
+    if variable=='Activity':
+        y_true = error_df.ActivityLabel.astype('uint8')
+    else:
+        y_true = error_df.TimeLabel.astype('uint8')
+    
+    score = precision_recall_fscore_support(y_true, y_pred, average='weighted')
+    
+    print('-------Evaluation of {}-------'.format(variable))
+    print('\n')
+    print('--Weighted Evaluation--')
+    print('Evaluation of {}'.format(variable))
+    print('Precision: {:.2f}'.format(score[0]))
+    print('Recall: {:.2f}'.format(score[1]))
+    print('Fscore: {:.2f}'.format(score[2]))
+    print('\n')
+    score_1 = precision_recall_fscore_support(y_true, y_pred)
+    print('--Evaluation for each class--')
+    print('Normal')
+    print('Precision: {:.2f}'.format(score_1[0][0]))
+    print('Recall: {:.2f}'.format(score_1[1][0]))
+    print('Fscore: {:.2f}'.format(score_1[2][0]))
+    print('\n')
+    print('Anomaly')
+    print('Precision: {:.2f}'.format(score_1[0][1]))
+    print('Recall: {:.2f}'.format(score_1[1][1]))
+    print('Fscore: {:.2f}'.format(score_1[2][1]))
+    #print('Support: {:.2f}'.format(score[3]))
+
+def plotDurationofPredictedTimeLabel(activity, df, statistics_storage, save=False):
+    fig, ax = plt.subplots(figsize=(10, 5))
+    anomaly = df[df['PredictedTimeLabel']==1]
+    normal = df[df['PredictedTimeLabel']==0]
+    ax.plot(anomaly.index, anomaly.AnomalousDuration, marker='o', ms=3.5, linestyle='', color='green', label='Anomalous data: '+str(len(anomaly)))
+    ax.plot(normal.index, normal.AnomalousDuration, marker='o', ms=3.5, linestyle='', color='blue', label='Normal data: '+str(len(normal)))
+    ax.hlines(statistics_storage[activity]['mean']+statistics_storage[activity]['std'], ax.get_xlim()[0], ax.get_xlim()[1], colors="r", zorder=100, label='Border')
+    plt.title('Duration of '+ activity)
+    plt.xlabel('Data point index')
+    plt.ylabel('Duration')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    if save == True:
+        plt.savefig(args.input_dir + 'duration_'+act)
+    plt.show()
+    plt.close()
 
 
-
-
+def plotFalseDuration(false_positive_df, false_negative_df, activity, statistics_storage):
+    selected_fp_df = false_positive_df[false_positive_df['Activity']==activity]['AnomalousDuration']
+    selected_fn_df = false_negative_df[false_negative_df['Activity']==activity]['AnomalousDuration']
+    
+    #false positive
+    plt.figure(figsize=(15, 5))
+    plt.subplot(121)
+    selected_fp_df.hist()
+    plt.axvline(statistics_storage[activity]['mean'], color='w', linestyle='dashed', linewidth=2)
+    plt.axvline(statistics_storage[activity]['mean']+statistics_storage[activity]['std'], color='r', linestyle='dashed', linewidth=2)
+    plt.title('False Positive: ' + activity)
+    
+    #false negative
+    plt.subplot(122)
+    selected_fn_df.hist()
+    plt.axvline(statistics_storage[activity]['mean'], color='w', linestyle='dashed', linewidth=2)
+    plt.axvline(statistics_storage[activity]['mean']+statistics_storage[activity]['std'], color='r', linestyle='dashed', linewidth=2)
+    plt.title('False Negative: ' + activity)
+    
+    plt.show()

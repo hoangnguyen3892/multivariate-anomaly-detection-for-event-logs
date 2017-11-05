@@ -192,15 +192,15 @@ class AE(nn.Module):
         
         self.fc3 = nn.Linear(z_dim, h_dim) #decode
         self.fc4 = nn.Linear(h_dim, shape[1]*shape[2]) #decode
-        self.dout = nn.Dropout(p=0.2)
+        self.dout = nn.Dropout(p=0.5)
         
         self.tanh = nn.Tanh()
         
         #initialize weights
-        nn.init.xavier_uniform(self.fc1.weight, gain=np.sqrt(2))
-        nn.init.xavier_uniform(self.fc2.weight, gain=np.sqrt(2))
-        nn.init.xavier_uniform(self.fc3.weight, gain=np.sqrt(2))
-        nn.init.xavier_uniform(self.fc4.weight, gain=np.sqrt(2))
+        nn.init.xavier_normal(self.fc1.weight, gain=np.sqrt(2))
+        nn.init.xavier_normal(self.fc2.weight, gain=np.sqrt(2))
+        nn.init.xavier_normal(self.fc3.weight, gain=np.sqrt(2))
+        nn.init.xavier_normal(self.fc4.weight, gain=np.sqrt(2))
 
     def encode(self, x):
         h = self.tanh(self.fc1(x))

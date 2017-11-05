@@ -1,4 +1,11 @@
 input/*
+!input/bpi_2012
+!input/bpi_2013
+input/bpi_2012/*
+!input/bpi_2012/*.png
+input/bpi_2013/*
+!input/bpi_2013/*.png
+
 experiment/output/*
 reference/*
 

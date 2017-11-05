@@ -232,7 +232,6 @@ class EncoderRNN(nn.Module):
         
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size, layer1)
-        self.tanh = nn.Tanh()
         
         #initialize weights
         nn.init.xavier_uniform(self.lstm.weight_ih_l0, gain=np.sqrt(2))
@@ -245,7 +244,7 @@ class EncoderRNN(nn.Module):
         c0 = Variable(tt.FloatTensor(self.num_layers, input.size(0), self.hidden_size).zero_(), requires_grad=False)
         encoded_input, hidden = self.lstm(input, (h0, c0))
         encoded_input = self.fc(encoded_input)
-        return self.tanh(encoded_input)
+        return encoded_input
 
       
 class DecoderRNN(nn.Module):

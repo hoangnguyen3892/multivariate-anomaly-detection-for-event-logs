@@ -28,8 +28,8 @@ class VAE(nn.Module):
         self.fc3 = nn.Linear(layer2, layer1) #decode
         self.fc4 = nn.Linear(layer1, shape[1]*shape[2]) #decode
     
-        self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
+        self.tanh = nn.Tanh()
+        self.dout = nn.Dropout(p=0.2)
         
         if self.isCuda:
             self.cuda()
@@ -44,7 +44,7 @@ class VAE(nn.Module):
     def encode(self, x):
         #x --> fc1 --> relu --> fc21
         #x --> fc1 --> relu --> fc22
-        h1 = self.relu(self.fc1(x))
+        h1 = self.tanh(self.fc1(x))
         return self.fc21(h1), self.fc22(h1)
     
 # This is a method proposed by https://arxiv.org/pdf/1312.6114.pdf
@@ -60,9 +60,9 @@ class VAE(nn.Module):
 
     def decode(self, z, x):
         #z --> fc3 --> relu --> fc4 --> sigmoid
-        h3 = self.relu(self.fc3(z))
-        #return self.sigmoid(self.fc4(h3))
-        return self.sigmoid(self.fc4(h3)).view(x.size())
+        h3 = self.tanh(self.fc3(z))
+        h3 = self.dout(h3)
+        return self.fc4(h3).view(x.size())
     
     def forward(self, x):
         #flatten input and pass to encode
@@ -142,7 +142,7 @@ class VAE_dropout(nn.Module):
         return self.decode(z, x), mu, logvar    
     
 
- 
+''' 
 class AE(nn.Module):
     def __init__(self, shape, h_dim, z_dim):
         super(AE, self).__init__()
@@ -180,10 +180,10 @@ class AE(nn.Module):
         #flatten input and pass to encode
         z = self.encode(x.view(-1, self.shape[1]*self.shape[2]))
         return self.decode(z, x)
-
-class AE_tanh(nn.Module):
+'''
+class AE(nn.Module):
     def __init__(self, shape, h_dim, z_dim):
-        super(AE_tanh, self).__init__()
+        super(AE, self).__init__()
         self.shape = shape
         
         # X --> fc1 --> Z --> fc2 --> X'
@@ -192,32 +192,102 @@ class AE_tanh(nn.Module):
         
         self.fc3 = nn.Linear(z_dim, h_dim) #decode
         self.fc4 = nn.Linear(h_dim, shape[1]*shape[2]) #decode
-    
-        #self.relu = nn.ReLU()
-        #self.sigmoid = nn.Sigmoid()
+        self.dout = nn.Dropout(p=0.2)
+        
         self.tanh = nn.Tanh()
-
+        
         #initialize weights
         nn.init.xavier_uniform(self.fc1.weight, gain=np.sqrt(2))
         nn.init.xavier_uniform(self.fc2.weight, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.fc3.weight, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.fc4.weight, gain=np.sqrt(2))
 
     def encode(self, x):
-        #x --> fc1 --> fc2 --> sigmoid --> z
         h = self.tanh(self.fc1(x))
+        h = self.dout(h)
         z = self.tanh(self.fc2(h))
         return z
 
     def decode(self, z, x):
-        #z --> fc3 --> fc4 --> sigmoid
         h = self.tanh(self.fc3(z))
+        h = self.dout(h)
         recon_x = self.fc4(h)
         return recon_x.view(x.size())
     
     def forward(self, x):
         #flatten input and pass to encode
         z = self.encode(x.view(-1, self.shape[1]*self.shape[2]))
-        return self.decode(z, x)    
+        return self.decode(z, x)
 
+    
+class EncoderRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, layer1, num_layers, isCuda):
+        super(EncoderRNN, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.layer1 = layer1
+        self.num_layers = num_layers
+        
+        self.isCuda = isCuda
+        
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, layer1)
+        self.tanh = nn.Tanh()
+        
+        #initialize weights
+        nn.init.xavier_uniform(self.lstm.weight_ih_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.lstm.weight_hh_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.fc.weight, gain=np.sqrt(2))
+
+    def forward(self, input):
+        tt = torch.cuda if self.isCuda else torch
+        h0 = Variable(tt.FloatTensor(self.num_layers, input.size(0), self.hidden_size).zero_(), requires_grad=False)
+        c0 = Variable(tt.FloatTensor(self.num_layers, input.size(0), self.hidden_size).zero_(), requires_grad=False)
+        encoded_input, hidden = self.lstm(input, (h0, c0))
+        encoded_input = self.fc(encoded_input)
+        return self.tanh(encoded_input)
+
+      
+class DecoderRNN(nn.Module):
+    def __init__(self, layer1, hidden_size, output_size, num_layers, isCuda):
+        super(DecoderRNN, self).__init__()
+        self.layer1 = layer1
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.num_layers = num_layers
+        
+        self.isCuda = isCuda
+        
+        self.fc = nn.Linear(layer1, hidden_size)
+        self.lstm = nn.LSTM(hidden_size, output_size, num_layers, batch_first=True)
+        self.tanh = nn.Tanh()
+        
+        #initialize weights
+        nn.init.xavier_uniform(self.lstm.weight_ih_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.lstm.weight_hh_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.fc.weight, gain=np.sqrt(2))
+        
+    def forward(self, encoded_input):
+        tt = torch.cuda if self.isCuda else torch
+        h0 = Variable(tt.FloatTensor(self.num_layers, encoded_input.size(0), self.output_size).zero_(), requires_grad=False)
+        c0 = Variable(tt.FloatTensor(self.num_layers, encoded_input.size(0), self.output_size).zero_(), requires_grad=False)
+        decoded_ouput = self.fc(encoded_input)
+        decoded_output, hidden = self.lstm(decoded_ouput, (h0, c0)) 
+        return decoded_output
+
+class LSTMAE(nn.Module):
+    def __init__(self, input_size, hidden_size, layer1, num_layers, isCuda):
+        super(LSTMAE, self).__init__()
+        self.encoder = EncoderRNN(input_size, hidden_size, layer1, num_layers, isCuda)
+        self.decoder = DecoderRNN(layer1, hidden_size, input_size, num_layers, isCuda)
+        
+    def forward(self, input):
+        encoded_input = self.encoder(input)
+        decoded_output = self.decoder(encoded_input)
+        return decoded_output
+    
+    
+'''
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, layer1, hidden_size, num_layers, isCuda):
         super(EncoderRNN, self).__init__()
@@ -255,6 +325,7 @@ class DecoderRNN(nn.Module):
         self.isCuda = isCuda
         self.lstm = nn.LSTM(hidden_size, layer1, num_layers, batch_first=True)
         self.fc = nn.Linear(layer1, output_size)
+        
         #self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
         
@@ -283,7 +354,7 @@ class LSTMAE(nn.Module):
         decoded_output = self.decoder(encoded_input)
         return decoded_output
     
-    
+'''    
     
 '''
 class DecoderRNN(nn.Module):

@@ -139,7 +139,7 @@ def getError(predicted_tensor, true_tensor, pad_matrix):
     return predicted_time, predicted_activity, true_time, true_activity
 
 
-def plotConfusionMaxtrix(error_df, threshold, variable='Activity'):
+def plotConfusionMaxtrix(error_df, threshold, variable='Activity', output_dir, save=False):
     LABELS = ['Normal', 'Anomaly']
     y_pred = [1 if e > threshold else 0 for e in error_df.Error.values]
     
@@ -153,8 +153,29 @@ def plotConfusionMaxtrix(error_df, threshold, variable='Activity'):
     plt.title('Confusion matrix of {}'.format(variable))
     plt.ylabel('True class')
     plt.xlabel('Predicted class')
+    if save == True:
+        plt.savefig(output_dir+'confusion_matrix_'+variable)
     plt.show()
 
+
+def plotOverlapReconstructionError(error_df, variable='Activity', output_dir, save='False'):
+    if variable == 'Activity':
+        normal_error_df = error_df[(error_df['ActivityLabel']== 0)]['Error']
+        anomaly_error_df = error_df[(error_df['ActivityLabel']== 1)]['Error']
+    else:
+        normal_error_df = error_df[(error_df['TimeLabel']== 0)]['Error']
+        anomaly_error_df = error_df[(error_df['TimeLabel']== 1)]['Error']
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.hist(normal_error_df, color='blue', label='Normal data ', alpha=0.5)
+    ax.hist(anomaly_error_df, color='green', label='Anomalous data ', alpha=0.5)
+
+    plt.title('Reconstruction error')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    if save == True:
+        plt.savefig(output_dir+'reconstruction_error_'+variable, bbox_inches='tight')
+    plt.show()
+	
 
 def plotReconstructionError(error_df, variable='Activity'):
     if variable == 'Activity':
@@ -210,7 +231,7 @@ def evalScore(error_df, threshold, variable='Activity'):
     print('Fscore: {:.2f}'.format(score_1[2][1]))
     #print('Support: {:.2f}'.format(score[3]))
 
-def plotDurationofPredictedTimeLabel(activity, df, statistics_storage, save=False):
+def plotDurationofPredictedTimeLabel(activity, df, statistics_storage, output_dir, save=False):
     fig, ax = plt.subplots(figsize=(10, 5))
     anomaly = df[df['PredictedTimeLabel']==1]
     normal = df[df['PredictedTimeLabel']==0]
@@ -222,7 +243,7 @@ def plotDurationofPredictedTimeLabel(activity, df, statistics_storage, save=Fals
     plt.ylabel('Duration')
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     if save == True:
-        plt.savefig(args.input_dir + 'duration_'+act)
+        plt.savefig(output_dir + 'duration_'+act)
     plt.show()
     plt.close()
 

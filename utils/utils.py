@@ -139,7 +139,7 @@ def getError(predicted_tensor, true_tensor, pad_matrix):
     return predicted_time, predicted_activity, true_time, true_activity
 
 
-def plotConfusionMaxtrix(error_df, threshold, variable='Activity', output_dir, save=False):
+def plotConfusionMaxtrix(error_df, threshold, variable='Activity', output_dir='./', save=False):
     LABELS = ['Normal', 'Anomaly']
     y_pred = [1 if e > threshold else 0 for e in error_df.Error.values]
     
@@ -158,7 +158,7 @@ def plotConfusionMaxtrix(error_df, threshold, variable='Activity', output_dir, s
     plt.show()
 
 
-def plotOverlapReconstructionError(error_df, variable='Activity', output_dir, save='False'):
+def plotOverlapReconstructionError(error_df, variable='Activity', output_dir='./', save='False'):
     if variable == 'Activity':
         normal_error_df = error_df[(error_df['ActivityLabel']== 0)]['Error']
         anomaly_error_df = error_df[(error_df['ActivityLabel']== 1)]['Error']
@@ -231,7 +231,7 @@ def evalScore(error_df, threshold, variable='Activity'):
     print('Fscore: {:.2f}'.format(score_1[2][1]))
     #print('Support: {:.2f}'.format(score[3]))
 
-def plotDurationofPredictedTimeLabel(activity, df, statistics_storage, output_dir, save=False):
+def plotDurationofPredictedTimeLabel(activity, df, statistics_storage, output_dir='./', save=False):
     fig, ax = plt.subplots(figsize=(10, 5))
     anomaly = df[df['PredictedTimeLabel']==1]
     normal = df[df['PredictedTimeLabel']==0]

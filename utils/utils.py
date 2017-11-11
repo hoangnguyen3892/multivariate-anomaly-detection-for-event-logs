@@ -243,7 +243,7 @@ def plotDurationofPredictedTimeLabel(activity, df, statistics_storage, output_di
     plt.ylabel('Duration')
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     if save == True:
-        plt.savefig(output_dir + 'duration_'+act)
+        plt.savefig(output_dir + 'duration_'+activity)
     plt.show()
     plt.close()
 

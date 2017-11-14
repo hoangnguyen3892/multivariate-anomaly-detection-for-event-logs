@@ -9,10 +9,11 @@ multivariate-anomaly-detection-for-event-logs
 |--- data: original dataset
 │   │   bpi_2012.csv
 |   |   bpi_2013.csv
-|   |   helpdesk.csv
 | 
 |--- data_preprocessing
 |   |   data_preparation.ipynb
+|   |   data_exploration.ipynb
+|   |   descriptive-statistics.ipynb
 |
 |--- utils
 |   |   utils.py
@@ -23,10 +24,9 @@ multivariate-anomaly-detection-for-event-logs
 |--- experiment
 |   |   output
 |   |   AE.ipynb
+|   |   LSTMAE.ipynb
 |
-|-- base_model
-|   |   
-|
+
 
 
 ```
@@ -39,5 +39,5 @@ multivariate-anomaly-detection-for-event-logs
 - ```pip install -r requirements.txt```
 
 2. Run ```data_preparation.ipynb```
-3. Run ```AE.ipynb```
+3. Run ```AE.ipynb``` or ```LSTMAE.ipynb```
 

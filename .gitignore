@@ -5,6 +5,10 @@ input/bpi_2012/*
 !input/bpi_2012/*.png
 input/bpi_2013/*
 !input/bpi_2013/*.png
+input/small_log
+!input/small_log/*.png
+input/large_log
+!input/large_log/*.png
 
 reference/*
 

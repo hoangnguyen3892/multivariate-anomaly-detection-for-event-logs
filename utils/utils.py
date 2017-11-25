@@ -170,8 +170,8 @@ def plotOverlapReconstructionError(error_df, variable='Activity', output_dir='./
     ax.hist(normal_error_df, color='blue', label='Normal data ', alpha=0.5)
     ax.hist(anomaly_error_df, color='green', label='Anomalous data ', alpha=0.5)
 
-    plt.title('Reconstruction error')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    #plt.title('Reconstruction error')
+    #plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     if save == True:
         plt.savefig(output_dir+'reconstruction_error_'+variable, bbox_inches='tight')
     plt.show()

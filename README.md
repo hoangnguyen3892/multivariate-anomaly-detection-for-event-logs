@@ -5,6 +5,7 @@
 ```
 multivariate-anomaly-detection-for-event-logs
 │   README.md
+|   requirement.txt
 |
 |--- data: original dataset
 │   │   bpi_2013.csv

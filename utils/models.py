@@ -220,9 +220,9 @@ class AE_dropout(nn.Module):
         return self.decode(z, x)
 
     
-class EncoderRNN(nn.Module):
+class EncoderLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, isCuda):
-        super(EncoderRNN, self).__init__()
+        super(EncoderLSTM, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -242,9 +242,9 @@ class EncoderRNN(nn.Module):
         return encoded_input, hidden
 
       
-class DecoderRNN(nn.Module):
+class DecoderLSTM(nn.Module):
     def __init__(self, hidden_size, output_size, num_layers, isCuda):
-        super(DecoderRNN, self).__init__()
+        super(DecoderLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.num_layers = num_layers
@@ -269,8 +269,66 @@ class LSTMAE(nn.Module):
     # x --> lstm --> z --> lstm --> fc --> x'
     def __init__(self, input_size, hidden_size, num_layers, isCuda):
         super(LSTMAE, self).__init__()
-        self.encoder = EncoderRNN(input_size, hidden_size, num_layers, isCuda)
-        self.decoder = DecoderRNN(hidden_size, input_size, num_layers, isCuda)
+        self.encoder = EncoderLSTM(input_size, hidden_size, num_layers, isCuda)
+        self.decoder = DecoderLSTM(hidden_size, input_size, num_layers, isCuda)
+        
+    def forward(self, input):
+        encoded_input, hidden = self.encoder(input)
+        decoded_output = self.decoder(encoded_input, hidden)
+        return decoded_output
+    
+    
+    
+class EncoderGRU(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, isCuda):
+        super(EncoderGRU, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.isCuda = isCuda
+        
+        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+        
+        #initialize weights
+        nn.init.xavier_uniform(self.gru.weight_ih_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.gru.weight_hh_l0, gain=np.sqrt(2))
+
+    def forward(self, input):
+        tt = torch.cuda if self.isCuda else torch
+        h0 = Variable(tt.FloatTensor(self.num_layers, input.size(0), self.hidden_size).zero_(), requires_grad=False)
+        encoded_input, hidden = self.gru(input, h0)
+        return encoded_input, hidden
+
+      
+class DecoderGRU(nn.Module):
+    def __init__(self, hidden_size, output_size, num_layers, isCuda):
+        super(DecoderGRU, self).__init__()
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.num_layers = num_layers
+        
+        self.isCuda = isCuda
+        
+        self.gru = nn.GRU(hidden_size, hidden_size, num_layers, batch_first=True)
+        self.linear = nn.Linear(hidden_size, output_size)
+        
+        #initialize weights
+        nn.init.xavier_uniform(self.gru.weight_ih_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.gru.weight_hh_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.linear.weight, gain=np.sqrt(2))
+        
+    def forward(self, encoded_input, hidden):
+        tt = torch.cuda if self.isCuda else torch
+        decoded_output, _ = self.gru(encoded_input, hidden)
+        decoded_output = self.linear(decoded_output) 
+        return decoded_output
+
+class GRUAE(nn.Module):
+    # x --> lstm --> z --> lstm --> fc --> x'
+    def __init__(self, input_size, hidden_size, num_layers, isCuda):
+        super(GRUAE, self).__init__()
+        self.encoder = EncoderGRU(input_size, hidden_size, num_layers, isCuda)
+        self.decoder = DecoderGRU(hidden_size, input_size, num_layers, isCuda)
         
     def forward(self, input):
         encoded_input, hidden = self.encoder(input)

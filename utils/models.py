@@ -334,3 +334,66 @@ class GRUAE(nn.Module):
         encoded_input, hidden = self.encoder(input)
         decoded_output = self.decoder(encoded_input, hidden)
         return decoded_output
+
+    
+    
+class EncoderLSTMcell(nn.Module):
+    def __init__(self, input_size, hidden_size, isCuda):
+        super(EncoderLSTMcell, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.isCuda = isCuda
+        
+        self.lstm = nn.LSTMCell(input_size[2], hidden_size)
+        
+        #initialize weights
+        nn.init.xavier_uniform(self.lstm.weight_ih_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.lstm.weight_hh_l0, gain=np.sqrt(2))
+
+    def forward(self, input):
+        tt = torch.cuda if self.isCuda else torch
+        h = Variable(tt.FloatTensor(input.size(0), self.hidden_size).zero_(), requires_grad=False)
+        c = Variable(tt.FloatTensor(input.size(0), self.hidden_size).zero_(), requires_grad=False)
+        encoded_input = []
+        
+        for i in range(input.size(1)):
+            h, c = self.lsm(input[i], (h, c))
+            encoded_input.append(h)
+        return encoded_input, h, c
+
+      
+class DecoderLSTMcell(nn.Module):
+    def __init__(self, hidden_size, output_size, isCuda):
+        super(DecoderLSTMcell, self).__init__()
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        
+        self.isCuda = isCuda
+        
+        self.lstm = nn.LSTMcell(output_size[2], hidden_size)
+        self.linear = nn.Linear(hidden_size, output_size)
+        
+        #initialize weights
+        nn.init.xavier_uniform(self.lstm.weight_ih_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.lstm.weight_hh_l0, gain=np.sqrt(2))
+        nn.init.xavier_uniform(self.linear.weight, gain=np.sqrt(2))
+        
+    def forward(self, encoded_input, h, c):
+        decoded_output = []
+        for i in range(input.size(1)):
+            h, c = self.lsm(input[i], (h, c))
+            decoded_output.append(h)
+        decoded_output = self.linear(decoded_output) 
+        return decoded_output
+
+class LSTMAEcell(nn.Module):
+    # x --> lstm --> z --> lstm --> fc --> x'
+    def __init__(self, input_size, hidden_size, isCuda):
+        super(LSTMAEcell, self).__init__()
+        self.encoder = EncoderLSTMcell(input_size, hidden_size, isCuda)
+        self.decoder = DecoderLSTMcell(hidden_size, input_size, isCuda)
+        
+    def forward(self, input):
+        encoded_input, (h,c) = self.encoder(input)
+        decoded_output = self.decoder(encoded_input, (h,c))
+        return decoded_output
